@@ -9,6 +9,8 @@ from sklearn.datasets import fetch_openml
 import sklearn.preprocessing
 import random
 import matplotlib.pyplot as plt
+import scipy
+from scipy import special
 
 """
 this function extracts data from the MNIST data base, the data is images of the
@@ -40,6 +42,8 @@ def extracting_data():
     validation_data_ = sklearn.preprocessing.scale(validation_data_unscaled, axis=0, with_std=False)
     test_data_ = sklearn.preprocessing.scale(test_data_unscaled, axis=0, with_std=False)
     return train_data_, train_labels_, validation_data_, validation_labels_, test_data_, test_labels_
+
+
 # train data is ndarray(6000, 784=28X28 pixels),
 # train labels is from {-1,1} where -1 stands for "0" and 1 stands for "8".
 # validation data is ndarray(5774, 784=28X28 pixels),validation labels...
@@ -77,14 +81,33 @@ def SGD_hinge(data, labels, C, eta_0, T):
 def SGD_log(data, labels, eta_0, T):
     """
     Implements SGD for log loss.
+    ℓlog (w, x, y) = log(1 + e^(-y<w,x>))
+    sgd stands for stochastic gradient descent algorithm which is as follow:
+    initialize w0 = 0
+    on each iteration t 0,1,... :
+    we sample i uniformly; and if ((yi) (wt)· (xi)) < 1, we update:
+    wt+1 = wt + (ηt) gradient(fi(wt))
+    gradient(fi(w))= -y_i x_i  (e^(-y_i w∙x_i )/(1+ e^(-y_i w∙x_i )
+    where ηt = η0/t, and η0 is a constant.
     """
-    # TODO: Implement me
-    pass
+    eta = eta_0
+    w = np.zeros(len(data[0]))
+    # q2c:
+    # norms = np.zeros(T)
+    for t in range(T):
+        i = random.randint(0, len(data) - 1)
+        w -= eta * -labels[i] * data[i] * (1 - scipy.special.expit(labels[i] * numpy.dot(w, data[i])))
+        eta = eta_0 / (t + 1)
+        # q2c:
+        # norms[t] = np.linalg.norm(w)
+    # q2c:
+    # return w, norms
+    return w
 
 
 #################################
 # cross validation to find the best eta.
-def q1ab(T=1000, C=1, runs=10, scale=11, eta=1):
+def q1_2_a_b(T=1000, C=1, runs=10, scale=11, eta=1):
     """
     Train the classifier on the training set. Use cross-validation on the
     validation set to find the best parameters.
@@ -92,31 +115,43 @@ def q1ab(T=1000, C=1, runs=10, scale=11, eta=1):
     accuracy = [0.0] * scale
     for i in range(-5, -5 + scale):
         sum_ = 0
-        C = pow(10, i)
+        eta = pow(10, i)
         for run in range(runs):
-            w = SGD_hinge(train_data, train_labels, C, eta, T)
+            w = SGD_log(train_data, train_labels, eta, T)
             sum_ += accurate_calculator(w, validation_data, validation_labels)
         accuracy[i + 5] = sum_ / runs
     return accuracy
 
 
-def q1c():
+def q1c_q2b():
     """
     Show the resulting w as an image
+    you can adjust for Hinge lost by changing function call to w
+    from SGD_log to hinge, and you can pass C value if wanted.
     """
-    w = SGD_hinge(train_data, train_labels, pow(10, -4), 1, 20000)
+    w = SGD_log(train_data, train_labels, pow(10, -5), 20000)
     plt.imshow(w.reshape((28, 28)), interpolation='nearest')
     plt.colorbar()
-    plt.title("weight vector w as an image for hinge loss")
+    plt.title("weight vector w as an image for log loss")
     plt.show()
 
 
-def q1d():
+def q1d_q2b():
     """
     prints the accuracy of w on the test set
     """
-    w = SGD_hinge(train_data, train_labels, pow(10, -4), 1, 20000)
+    eta = pow(10, -5)
+    w = SGD_log(train_data, train_labels, eta, 20000)
     return accurate_calculator(w, test_data, test_labels)
+
+
+def q2c():
+    """
+    calculates w weight vector norm along its calculation on the SGD algorithm.
+    """
+    w, norms = SGD_log(train_data, train_labels, pow(10, -5), 20000)
+    plot(np.array([i for i in range(20000)]), norms, "t", "w norm", "w norm", "q2c: visualizing w norm for SGD with "
+                                                                              "log loss")
 
 
 def plot(x, y, x_label, y_label, label, title):
@@ -128,7 +163,7 @@ def plot(x, y, x_label, y_label, label, title):
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.title(title)
-    plt.xscale('log')
+    # plt.xscale('log')
     # plt.ylim((0.8, 1))
     # Adding legend, which helps us recognize the curve according to it's color
     plt.legend()
@@ -157,6 +192,13 @@ if __name__ == '__main__':
     # q1c()
     # q1d:
     # print(q1d())
+    # q2a:
+    # plot(np.array([pow(10, i) for i in range(-5, 6)]), q1_2_a_b(), "eta", "ratio of success", "accuracy", "q2a")
+    # q2b:
+    # q1c_q2b()
+    # print(q1d_q2b())
+    # q2c:
+    # q2c()
     pass
 
 #################################
